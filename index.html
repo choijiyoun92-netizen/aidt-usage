@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+
+<meta charset="UTF-8">
+<title>AIDT 사용량 대시보드</title>
+
+<link rel="stylesheet" href="aidt-design-system.css">
+
+<style>
+
+body{
+font-family: Pretendard, sans-serif;
+padding:40px;
+background:#f7f7f7;
+}
+
+h1{
+margin-bottom:20px;
+}
+
+textarea{
+width:100%;
+height:200px;
+padding:12px;
+font-size:14px;
+}
+
+button{
+padding:10px 16px;
+margin-top:10px;
+margin-right:8px;
+cursor:pointer;
+}
+
+.card{
+background:white;
+padding:20px;
+margin-top:24px;
+border-radius:10px;
+box-shadow:0 2px 8px rgba(0,0,0,0.05);
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:10px;
+}
+
+th,td{
+border-bottom:1px solid #eee;
+padding:8px;
+text-align:center;
+font-size:14px;
+}
+
+th{
+background:#fafafa;
+}
+
+.filter-row{
+margin-bottom:10px;
+}
+
+select,input{
+padding:6px;
+margin-right:10px;
+}
+
+canvas{
+margin-top:20px;
+}
+
+.total-cards{
+display:flex;
+gap:16px;
+margin-bottom:20px;
+}
+
+.stat{
+flex:1;
+text-align:center;
+}
+
+.stat div{
+font-size:28px;
+font-weight:700;
+margin-top:6px;
+}
+
+.card-header{
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-bottom:10px;
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+<h1>📊 AIDT 사용량 대시보드</h1>
+
+<div class="total-cards">
+
+<div class="card stat">
+<h3>학교</h3>
+<div id="totalSchool">0</div>
+</div>
+
+<div class="card stat">
+<h3>교사수업</h3>
+<div id="totalTeacherClass">0</div>
+</div>
+
+<div class="card stat">
+<h3>학생입장</h3>
+<div id="totalStudentJoin">0</div>
+</div>
+
+<div class="card stat">
+<h3>교사로그인</h3>
+<div id="totalTeacherLogin">0</div>
+</div>
+
+<div class="card stat">
+<h3>학생로그인</h3>
+<div id="totalStudentLogin">0</div>
+</div>
+
+</div>
+
+<div class="card">
+
+<h3>Teams 메시지 붙여넣기</h3>
+
+<textarea id="input"></textarea>
+
+<br>
+
+<button onclick="addData()">데이터 추가</button>
+
+</div>
+
+
+
+<div class="card">
+
+<div class="card-header">
+
+<h3>📅 누적 사용량 데이터</h3>
+
+<button onclick="downloadCSV()">CSV 다운로드</button>
+
+</div>
+
+<div class="filter-row">
+
+시작일
+<input type="date" id="startDate">
+
+종료일
+<input type="date" id="endDate">
+
+교과서
+<select id="bookFilter">
+<option value="">전체</option>
+</select>
+
+<button onclick="render()">필터 적용</button>
+
+</div>
+
+<table id="dataTable">
+
+<thead>
+<tr>
+<th>날짜</th>
+<th>교과서</th>
+<th>학교</th>
+<th>교사수업</th>
+<th>학생입장</th>
+<th>교사로그인</th>
+<th>학생로그인</th>
+</tr>
+</thead>
+
+<tbody></tbody>
+
+</table>
+<div id="pagination" style="margin-top:10px;"></div>
+</div>
+
+
+
+<div class="card">
+
+<h3>📈 사용량 추이</h3>
+
+<canvas id="loginChart" height="100"></canvas>
+
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+
+let storageKey="aidt_usage_data"
+let currentPage=1
+let rowsPerPage=10
+
+
+function addData(){
+
+let text=document.getElementById("input").value
+
+let dateMatch=text.match(/\d{4}년\s\d{2}월\s\d{2}일/)
+
+if(!dateMatch){
+alert("날짜 인식 실패")
+return
+}
+
+let date=dateMatch[0]
+.replace("년","-")
+.replace("월","-")
+.replace("일","")
+
+let lines=text.split("\n").map(v=>v.trim()).filter(v=>v!="")
+
+let saved=JSON.parse(localStorage.getItem(storageKey)||"[]")
+
+for(let i=0;i<lines.length;i++){
+
+if(lines[i].includes("[") && !isNaN(lines[i+1])){
+
+saved.unshift({
+
+date:date,
+book:lines[i],
+school:Number(lines[i+1]),
+teacherClass:Number(lines[i+2]),
+studentJoin:Number(lines[i+3]),
+teacherLogin:Number(lines[i+4]),
+studentLogin:Number(lines[i+5])
+
+})
+
+}
+
+}
+
+localStorage.setItem(storageKey,JSON.stringify(saved))
+
+document.getElementById("input").value=""
+
+render()
+
+}
+
+
+
+function getFilteredData(){
+
+let saved=JSON.parse(localStorage.getItem(storageKey)||"[]")
+
+let start=document.getElementById("startDate").value
+let end=document.getElementById("endDate").value
+let book=document.getElementById("bookFilter").value
+
+return saved.filter(d=>{
+
+if(start && d.date<start) return false
+if(end && d.date>end) return false
+if(book && d.book!=book) return false
+
+return true
+
+})
+
+}
+
+
+
+function render(){
+
+let data=getFilteredData()
+
+let tbody=document.querySelector("#dataTable tbody")
+
+tbody.innerHTML=""
+
+let start=(currentPage-1)*rowsPerPage
+let end=start+rowsPerPage
+
+let pageData=data.slice(start,end)
+
+pageData.forEach(d=>{
+
+tbody.innerHTML+=`
+<tr>
+<td>${d.date}</td>
+<td>${d.book}</td>
+<td>${d.school}</td>
+<td>${d.teacherClass}</td>
+<td>${d.studentJoin}</td>
+<td>${d.teacherLogin}</td>
+<td>${d.studentLogin}</td>
+</tr>
+`
+
+})
+
+renderFilters()
+renderTotalCards()
+renderChart()
+renderPagination(data.length)
+
+}
+
+
+
+function renderFilters(){
+
+let saved=JSON.parse(localStorage.getItem(storageKey)||"[]")
+
+let books=[...new Set(saved.map(v=>v.book))]
+.sort()
+
+let select=document.getElementById("bookFilter")
+
+let current=select.value
+
+select.innerHTML=`<option value="">전체</option>`
+
+books.forEach(b=>{
+select.innerHTML+=`<option value="${b}">${b}</option>`
+})
+
+select.value=current
+
+}
+
+
+
+function renderChart(){
+
+let data=getFilteredData()
+
+let map={}
+
+data.forEach(d=>{
+
+if(!map[d.date]){
+map[d.date]={
+teacherClass:0,
+studentJoin:0,
+teacherLogin:0,
+studentLogin:0
+}
+}
+
+map[d.date].teacherClass+=d.teacherClass
+map[d.date].studentJoin+=d.studentJoin
+map[d.date].teacherLogin+=d.teacherLogin
+map[d.date].studentLogin+=d.studentLogin
+
+})
+
+let labels=Object.keys(map).sort()
+
+let teacherClass=labels.map(v=>map[v].teacherClass)
+let studentJoin=labels.map(v=>map[v].studentJoin)
+let teacherLogin=labels.map(v=>map[v].teacherLogin)
+let studentLogin=labels.map(v=>map[v].studentLogin)
+
+let ctx=document.getElementById("loginChart")
+
+if(window.chart) window.chart.destroy()
+
+window.chart=new Chart(ctx,{
+type:"line",
+data:{
+labels:labels,
+datasets:[
+{label:"교사수업",data:teacherClass},
+{label:"학생입장",data:studentJoin},
+{label:"교사로그인",data:teacherLogin},
+{label:"학생로그인",data:studentLogin}
+]
+}
+})
+
+}
+
+
+function renderTotalCards(){
+
+let data=getFilteredData()
+
+let total={
+school:0,
+teacherClass:0,
+studentJoin:0,
+teacherLogin:0,
+studentLogin:0
+}
+
+data.forEach(d=>{
+
+total.school+=d.school
+total.teacherClass+=d.teacherClass
+total.studentJoin+=d.studentJoin
+total.teacherLogin+=d.teacherLogin
+total.studentLogin+=d.studentLogin
+
+})
+
+document.getElementById("totalSchool").innerText=total.school
+document.getElementById("totalTeacherClass").innerText=total.teacherClass
+document.getElementById("totalStudentJoin").innerText=total.studentJoin
+document.getElementById("totalTeacherLogin").innerText=total.teacherLogin
+document.getElementById("totalStudentLogin").innerText=total.studentLogin
+
+}
+
+function downloadCSV(){
+
+let data=getFilteredData()
+
+let csv="date,book,school,teacherClass,studentJoin,teacherLogin,studentLogin\n"
+
+data.forEach(d=>{
+
+csv+=`${d.date},${d.book},${d.school},${d.teacherClass},${d.studentJoin},${d.teacherLogin},${d.studentLogin}\n`
+
+})
+
+let blob=new Blob([csv])
+
+let a=document.createElement("a")
+
+a.href=URL.createObjectURL(blob)
+
+a.download="aidt_usage.csv"
+
+a.click()
+
+}
+
+
+
+render()
+
+function renderPagination(total){
+
+let pageCount=Math.ceil(total/rowsPerPage)
+
+let container=document.getElementById("pagination")
+
+container.innerHTML=""
+
+for(let i=1;i<=pageCount;i++){
+
+container.innerHTML+=`
+<button onclick="changePage(${i})">${i}</button>
+`
+
+}
+
+}
+
+function changePage(page){
+
+currentPage=page
+
+render()
+
+}
+
+</script>
+
+</body>
+</html>
