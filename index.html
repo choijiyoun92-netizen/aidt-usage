@@ -95,6 +95,151 @@ align-items:center;
 margin-bottom:10px;
 }
 
+.tooltip{
+position:relative;
+cursor:pointer;
+font-size:12px;
+color:#888;
+margin-left:4px;
+}
+
+.tooltiptext{
+visibility:hidden;
+width:180px;
+background:#333;
+color:#fff;
+text-align:left;
+padding:6px;
+border-radius:4px;
+position:absolute;
+bottom:120%;
+left:50%;
+transform:translateX(-50%);
+font-size:12px;
+z-index:1;
+}
+
+.tooltip:hover .tooltiptext{
+visibility:visible;
+}
+
+/* ===== 버튼 공통 ===== */
+
+button{
+border:none;
+border-radius:8px;
+font-weight:600;
+transition:all 0.2s ease;
+}
+
+/* ===== Primary 버튼 (데이터 추가) ===== */
+
+.btn-primary{
+background:#2563eb;
+color:white;
+padding:10px 18px;
+}
+
+.btn-primary:hover{
+background:#1e4fd6;
+transform:translateY(-1px);
+box-shadow:0 4px 10px rgba(0,0,0,0.1);
+}
+
+/* ===== Secondary 버튼 (CSV) ===== */
+
+.btn-secondary{
+background:#f3f4f6;
+color:#333;
+padding:8px 14px;
+}
+
+.btn-secondary:hover{
+background:#e5e7eb;
+}
+
+/* ===== 필터 버튼 ===== */
+
+.btn-filter{
+background:#10b981;
+color:white;
+padding:8px 14px;
+}
+
+.btn-filter:hover{
+background:#059669;
+}
+
+/* ===== 페이지네이션 ===== */
+
+#pagination{
+margin-top:20px;
+text-align:center;
+}
+
+/* 페이지 버튼 */
+
+.page-btn{
+background:white;
+border:1px solid #ddd;
+padding:6px 10px;
+margin:2px;
+border-radius:6px;
+font-size:13px;
+cursor:pointer;
+}
+
+.page-btn:hover{
+background:#f3f4f6;
+}
+
+/* 현재 페이지 */
+
+.page-btn.active{
+background:#2563eb;
+color:white;
+border-color:#2563eb;
+}
+
+/* 좌우 이동 버튼 */
+
+.page-nav{
+background:#f3f4f6;
+border:1px solid #ddd;
+padding:6px 10px;
+margin:2px;
+border-radius:6px;
+font-size:13px;
+cursor:pointer;
+}
+
+.page-nav:hover{
+background:#e5e7eb;
+}
+
+.sort-header{
+display:flex;
+align-items:center;
+justify-content:center;
+gap:6px;
+}
+
+.sort-icons{
+display:flex;
+flex-direction:column;
+font-size:10px;
+line-height:10px;
+cursor:pointer;
+}
+
+.sort-icons span{
+color:#bbb;
+}
+
+.sort-icons span.active{
+color:#2563eb;
+font-weight:700;
+}
 </style>
 
 </head>
@@ -141,7 +286,7 @@ margin-bottom:10px;
 
 <br>
 
-<button onclick="addData()">데이터 추가</button>
+<button class="btn-primary" onclick="addData()">데이터 추가</button>
 
 </div>
 
@@ -153,24 +298,30 @@ margin-bottom:10px;
 
 <h3>📅 누적 사용량 데이터</h3>
 
-<button onclick="downloadCSV()">CSV 다운로드</button>
+<button class="btn-secondary" onclick="downloadCSV()">CSV 다운로드</button>
 
 </div>
 
 <div class="filter-row">
 
-시작일
-<input type="date" id="startDate">
+<select id="dateType" onchange="toggleDatePicker()">
+<option value="day">일</option>
+<option value="week">주</option>
+<option value="month">월</option>
+</select>
 
-종료일
-<input type="date" id="endDate">
+<input type="date" id="dayPicker">
+
+<input type="week" id="weekPicker" style="display:none">
+
+<input type="month" id="monthPicker" style="display:none">
 
 교과서
 <select id="bookFilter">
 <option value="">전체</option>
 </select>
 
-<button onclick="render()">필터 적용</button>
+<button class="btn-filter" onclick="currentPage=1; render()">필터 적용</button>
 
 </div>
 
@@ -178,20 +329,56 @@ margin-bottom:10px;
 
 <thead>
 <tr>
-<th>날짜</th>
-<th>교과서</th>
-<th>학교</th>
-<th>교사수업</th>
-<th>학생입장</th>
-<th>교사로그인</th>
-<th>학생로그인</th>
+<th>
+<div class="sort-header">
+날짜
+<div class="sort-icons">
+<span id="dateAsc" onclick="setSort('date','asc')">▲</span>
+<span id="dateDesc" onclick="setSort('date','desc')">▼</span>
+</div>
+</div>
+</th>
+<th onclick="setSort('book')">교과서</th>
+<th onclick="setSort('school')">학교</th>
+<th onclick="setSort('teacherClass')">
+교사 수업
+<span class="tooltip">ⓘ
+<span class="tooltiptext">
+교사가 실제 수업 시작 버튼을 눌러 생성된 수업 수
+</span>
+</span>
+</th>
+<th onclick="setSort('studentJoin')">
+학생 입장
+<span class="tooltip">ⓘ
+<span class="tooltiptext">
+학생이 수업에 실제 입장한 횟수
+</span>
+</span>
+</th>
+<th onclick="setSort('teacherLogin')">
+교사 로그인
+<span class="tooltip">ⓘ
+<span class="tooltiptext">
+로그인한 교사 수 (중복 제거)
+</span>
+</span>
+</th>
+<th onclick="setSort('studentLogin')">
+학생 로그인
+<span class="tooltip">ⓘ
+<span class="tooltiptext">
+로그인한 학생 수 (중복 제거)
+</span>
+</span>
+</th>
 </tr>
 </thead>
 
 <tbody></tbody>
 
 </table>
-<div id="pagination" style="margin-top:10px;"></div>
+<div id="pagination" style="margin-top:10px;text-align:center;"></div>
 </div>
 
 
@@ -212,6 +399,8 @@ margin-bottom:10px;
 let storageKey="aidt_usage_data"
 let currentPage=1
 let rowsPerPage=10
+let sortColumn="date"
+let sortDirection="desc"
 
 
 function addData(){
@@ -268,14 +457,46 @@ function getFilteredData(){
 
 let saved=JSON.parse(localStorage.getItem(storageKey)||"[]")
 
-let start=document.getElementById("startDate").value
-let end=document.getElementById("endDate").value
+let day=document.getElementById("dayPicker").value
+let week=document.getElementById("weekPicker").value
+let month=document.getElementById("monthPicker").value
 let book=document.getElementById("bookFilter").value
 
 return saved.filter(d=>{
 
-if(start && d.date<start) return false
-if(end && d.date>end) return false
+let dDate=new Date(d.date)
+
+if(day){
+
+if(d.date!=day) return false
+
+}
+
+if(week){
+
+let [year,weekNum]=week.split("-W")
+
+let firstDay=new Date(year,0,1)
+
+let weekStart=new Date(firstDay.getTime()+(weekNum-1)*7*86400000)
+
+let weekEnd=new Date(weekStart.getTime()+6*86400000)
+
+if(dDate < weekStart || dDate > weekEnd) return false
+
+}
+
+if(month){
+
+let [year,monthNum]=month.split("-")
+
+if(
+dDate.getFullYear()!=year ||
+(dDate.getMonth()+1)!=monthNum
+) return false
+
+}
+
 if(book && d.book!=book) return false
 
 return true
@@ -288,7 +509,7 @@ return true
 
 function render(){
 
-let data=getFilteredData()
+let data=sortData(getFilteredData())
 
 let tbody=document.querySelector("#dataTable tbody")
 
@@ -298,6 +519,18 @@ let start=(currentPage-1)*rowsPerPage
 let end=start+rowsPerPage
 
 let pageData=data.slice(start,end)
+
+if(pageData.length===0){
+
+tbody.innerHTML=`
+<tr>
+<td colspan="7" style="padding:40px;text-align:center;color:#888;">
+위의 'Teams 메시지 붙여넣기'에서 데이터를 추가해주세요.
+</td>
+</tr>
+`
+
+}else{
 
 pageData.forEach(d=>{
 
@@ -315,10 +548,13 @@ tbody.innerHTML+=`
 
 })
 
+}
+
 renderFilters()
 renderTotalCards()
 renderChart()
 renderPagination(data.length)
+updateSortIcons()
 
 }
 
@@ -349,7 +585,7 @@ select.value=current
 
 function renderChart(){
 
-let data=getFilteredData()
+let data=sortData(getFilteredData())
 
 let map={}
 
@@ -400,7 +636,7 @@ datasets:[
 
 function renderTotalCards(){
 
-let data=getFilteredData()
+let data=sortData(getFilteredData())
 
 let total={
 school:0,
@@ -430,7 +666,7 @@ document.getElementById("totalStudentLogin").innerText=total.studentLogin
 
 function downloadCSV(){
 
-let data=getFilteredData()
+let data=sortData(getFilteredData())
 
 let csv="date,book,school,teacherClass,studentJoin,teacherLogin,studentLogin\n"
 
@@ -458,16 +694,42 @@ render()
 
 function renderPagination(total){
 
-let pageCount=Math.ceil(total/rowsPerPage)
+let pageCount=Math.max(1,Math.ceil(total/rowsPerPage))
 
 let container=document.getElementById("pagination")
 
 container.innerHTML=""
 
-for(let i=1;i<=pageCount;i++){
+let pageGroup=Math.ceil(currentPage/10)
+
+let startPage=(pageGroup-1)*10+1
+let endPage=Math.min(startPage+9,pageCount)
+
+
+if(pageCount>10){
 
 container.innerHTML+=`
-<button onclick="changePage(${i})">${i}</button>
+<button class="page-nav" onclick="prevPage()" ${startPage===1?'disabled':''}>◀</button>
+`
+
+}
+
+
+for(let i=startPage;i<=endPage;i++){
+
+container.innerHTML+=`
+<button class="page-btn ${i===currentPage?'active':''}" onclick="changePage(${i})" ${i===currentPage?'style="font-weight:bold;"':''}>
+${i}
+</button>
+`
+
+}
+
+
+if(pageCount>10){
+
+container.innerHTML+=`
+<button class="page-nav" onclick="nextPage()">▶</button>
 `
 
 }
@@ -482,6 +744,94 @@ render()
 
 }
 
+function sortData(data){
+
+return data.sort((a,b)=>{
+
+let v1=a[sortColumn]
+let v2=b[sortColumn]
+
+if(typeof v1==="string"){
+
+return sortDirection==="asc"
+? v1.localeCompare(v2)
+: v2.localeCompare(v1)
+
+}
+
+return sortDirection==="asc"
+? v1-v2
+: v2-v1
+
+})
+
+}
+
+function setSort(column,direction){
+
+sortColumn=column
+sortDirection=direction
+
+updateSortIcons()
+
+render()
+
+}
+
+function toggleDatePicker(){
+
+let type=document.getElementById("dateType").value
+
+document.getElementById("dayPicker").style.display="none"
+document.getElementById("weekPicker").style.display="none"
+document.getElementById("monthPicker").style.display="none"
+
+if(type=="day") document.getElementById("dayPicker").style.display="inline"
+if(type=="week") document.getElementById("weekPicker").style.display="inline"
+if(type=="month") document.getElementById("monthPicker").style.display="inline"
+
+}
+
+function prevPage(){
+
+let pageGroup=Math.ceil(currentPage/10)
+
+let target=(pageGroup-2)*10+1
+
+if(target<1) target=1
+
+currentPage=target
+
+render()
+
+}
+
+function nextPage(){
+
+let pageGroup=Math.ceil(currentPage/10)
+
+let target=pageGroup*10+1
+
+currentPage=target
+
+render()
+
+}
+
+function updateSortIcons(){
+
+document.getElementById("dateAsc").classList.remove("active")
+document.getElementById("dateDesc").classList.remove("active")
+
+if(sortDirection==="asc"){
+document.getElementById("dateAsc").classList.add("active")
+}
+
+if(sortDirection==="desc"){
+document.getElementById("dateDesc").classList.add("active")
+}
+
+}
 </script>
 
 </body>
